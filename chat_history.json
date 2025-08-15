@@ -1,0 +1,18 @@
+[
+  {
+    "role": "user",
+    "content": "please remember that I like blue ice cream"
+  },
+  {
+    "role": "assistant",
+    "content": "I will remember that you like blue ice cream!"
+  },
+  {
+    "role": "user",
+    "content": "what is my favorite color ice cream"
+  },
+  {
+    "role": "assistant",
+    "content": "Your favorite color ice cream is blue."
+  }
+]
