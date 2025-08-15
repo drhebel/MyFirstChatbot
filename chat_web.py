@@ -4,21 +4,22 @@ from langchain.schema import HumanMessage, AIMessage
 import os
 import json
 
-# === Settings ===
-HISTORY_FILE_TEMPLATE = "chat_history_{}.json"
-
 # === Model Setup ===
 llm = ChatOpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=st.secrets["OPENROUTER_API_KEY"],
     model="openai/gpt-3.5-turbo",
-    temperature=0
+    temperature=0,
 )
 
+# === Helpers ===
+def get_history_file(username):
+    return f"chat_history_{username}.json"
+
 def load_history(username):
-    filename = HISTORY_FILE_TEMPLATE.format(username)
-    if os.path.exists(filename):
-        with open(filename, "r", encoding="utf-8") as f:
+    path = get_history_file(username)
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
             history = []
             for entry in data:
@@ -30,48 +31,62 @@ def load_history(username):
     return []
 
 def save_history(username, history):
-    filename = HISTORY_FILE_TEMPLATE.format(username)
+    path = get_history_file(username)
     data = []
     for msg in history:
         if isinstance(msg, HumanMessage):
             data.append({"role": "user", "content": msg.content})
         elif isinstance(msg, AIMessage):
             data.append({"role": "assistant", "content": msg.content})
-    with open(filename, "w", encoding="utf-8") as f:
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 
-st.set_page_config(page_title="💬 Persistent AI Chat")
-st.title("💬 Persistent AI Chatbot")
-st.write("Your messages are saved between sessions, but previous chats are hidden for privacy.")
+# === Streamlit UI ===
+st.set_page_config(page_title="💬 Streamlit Chatbot with Memory")
+st.title("💬 Persistent Chatbot with Per-Session Display")
 
-if "username_confirmed" not in st.session_state:
-    st.session_state.username_confirmed = False
+# === Username Logic ===
+if "username" not in st.session_state:
+    st.session_state.username = None
 
-if not st.session_state.username_confirmed:
-    username_input = st.text_input("Please enter your user name:")
-    if st.button("Confirm Username"):
-        if username_input.strip():
-            st.session_state.username = username_input.strip()
-            st.session_state.username_confirmed = True
+if not st.session_state.username:
+    st.session_state.username = st.text_input("Enter your username to begin:")
 
-if st.session_state.get("username_confirmed", False):
-    username = st.session_state.username
+if st.session_state.username:
+    # Initialize in-session messages
     if "messages" not in st.session_state:
-        st.session_state.messages = load_history(username)
+        st.session_state.messages = []
 
-    st.write(f"Hello, **{username}**! Start chatting below:")
+    st.write(f"👤 Logged in as: {st.session_state.username}")
+    st.write("Start chatting below. Only **this session's** messages are shown. Memory is saved per user.")
 
-    # Previous messages hidden for privacy (only used internally)
-    # for msg in st.session_state.messages:
-    #     role = "user" if isinstance(msg, HumanMessage) else "assistant"
-    #     st.chat_message(role).write(msg.content)
+    # === Chat Display: Show current session messages ===
+    for msg in st.session_state.messages:
+        role = "user" if isinstance(msg, HumanMessage) else "assistant"
+        with st.chat_message(role):
+            st.write(msg.content)
 
+    # === Chat Input ===
     if prompt := st.chat_input("Say something..."):
-        st.session_state.messages.append(HumanMessage(content=prompt))
-        response = llm.invoke(st.session_state.messages)
-        st.session_state.messages.append(AIMessage(content=response.content))
+        # Append user message
+        user_msg = HumanMessage(content=prompt)
+        st.session_state.messages.append(user_msg)
 
-        st.chat_message("user").write(prompt)
-        st.chat_message("assistant").write(response.content)
+        # Load full history (including past sessions)
+        full_history = load_history(st.session_state.username)
+        full_history += [user_msg]
 
-        save_history(username, st.session_state.messages)
+        # Get model response
+        response = llm.invoke(full_history)
+        assistant_msg = AIMessage(content=response.content)
+
+        # Append assistant message to session state and history
+        st.session_state.messages.append(assistant_msg)
+        full_history.append(assistant_msg)
+
+        # Save updated full history (persistent memory)
+        save_history(st.session_state.username, full_history)
+
+        # Show assistant response
+        with st.chat_message("assistant"):
+            st.write(response.content)

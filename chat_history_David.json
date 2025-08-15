@@ -30,5 +30,21 @@
   {
     "role": "assistant",
     "content": "Your favorite color is blue."
+  },
+  {
+    "role": "user",
+    "content": "what is my favorite color"
+  },
+  {
+    "role": "assistant",
+    "content": "Your favorite color is blue."
+  },
+  {
+    "role": "user",
+    "content": "do I like ice cream"
+  },
+  {
+    "role": "assistant",
+    "content": "Yes, you mentioned that you love almost all ice cream flavors, so it seems like you enjoy ice cream."
   }
 ]
